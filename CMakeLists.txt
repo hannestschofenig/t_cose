@@ -5,7 +5,7 @@ project(t_cose
     VERSION 1.0.1)
 
 # Constants
-set(CRYPTO_PROVIDERS "OpenSSL" "MbedTLS" "Test")
+set(CRYPTO_PROVIDERS "OpenSSL" "MbedTLS" "liboqs" "Test")
 
 # Project options
 set(CRYPTO_PROVIDER "OpenSSL" CACHE STRING "The crypto provider to use: ${CRYPTO_PROVIDERS}")
@@ -23,6 +23,8 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Create shared instead of static libraries"
 set(QCBOR_ROOT "" CACHE PATH "Installation prefix of QCBOR")
 set(MbedTLS_ROOT "" CACHE PATH "Installation prefix of MbedTLS")
 set(OpenSSL_ROOT "" CACHE PATH "Installation prefix of OpenSSL")
+#set(LIBQOS_INCLUDE_DIR "/usr/local/include/oqs" CACHE PATH "Include files for libqos)
+#set(LIBQOS_LIBRARY "/usr/local/lib/libqos.a" CACHE PATH "Libraries for libqos)
 
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     message(STATUS "No build type selected, defaulting to Release")
@@ -45,6 +47,15 @@ elseif(CRYPTO_PROVIDER STREQUAL "OpenSSL")
     set(CRYPTO_COMPILE_DEFS -DT_COSE_USE_OPENSSL_CRYPTO=1)
     set(CRYPTO_ADAPTER_SRC crypto_adapters/t_cose_openssl_crypto.c)
 
+# liboqs also requires OpenSSL
+elseif(CRYPTO_PROVIDER STREQUAL "liboqs")
+
+    find_package(OpenSSL REQUIRED)
+    find_package(liboqs REQUIRED)
+    set(CRYPTO_LIBRARY OpenSSL::Crypto)
+    set(CRYPTO_COMPILE_DEFS -DT_COSE_USE_OPENSSL_CRYPTO=1)
+    set(CRYPTO_ADAPTER_SRC crypto_adapters/t_cose_liboqs_crypto.c)
+
 elseif(CRYPTO_PROVIDER STREQUAL "Test")
 
     add_library(b_con_hash crypto_adapters/b_con_hash/sha256.c)
@@ -61,8 +72,28 @@ endif()
 # Global compile options applying to all targets
 add_compile_options(-pedantic -Wall)
 
+if(CRYPTO_PROVIDER STREQUAL "liboqs")
 set(T_COSE_SRC_COMMON
     src/t_cose_sign1_sign.c
+    src/t_cose_ml_dsa_signer.c
+    src/t_cose_parameters.c
+    src/t_cose_sign1_verify.c
+    src/t_cose_util.c
+    src/t_cose_key.c
+    src/t_cose_sign_sign.c
+    src/t_cose_signature_sign_main.c
+    src/t_cose_signature_sign_mldsa.c
+    src/t_cose_signature_sign_eddsa.c
+    src/t_cose_sign_verify.c
+    src/t_cose_signature_verify_main.c
+    src/t_cose_signature_verify_mldsa.c
+    src/t_cose_signature_verify_eddsa.c
+    src/t_cose_qcbor_gap.c
+)
+else()
+set(T_COSE_SRC_COMMON
+    src/t_cose_sign1_sign.c
+    src/t_cose_ml_dsa_signer.c
     src/t_cose_parameters.c
     src/t_cose_sign1_verify.c
     src/t_cose_util.c
@@ -70,11 +101,13 @@ set(T_COSE_SRC_COMMON
     src/t_cose_sign_sign.c
     src/t_cose_mac_compute.c
     src/t_cose_signature_sign_main.c
+    src/t_cose_signature_sign_mldsa.c
     src/t_cose_signature_sign_restart.c
     src/t_cose_signature_sign_eddsa.c
     src/t_cose_sign_verify.c
     src/t_cose_mac_validate.c
     src/t_cose_signature_verify_main.c
+    src/t_cose_signature_verify_mldsa.c
     src/t_cose_signature_verify_eddsa.c
     src/t_cose_encrypt_enc.c
     src/t_cose_encrypt_dec.c
@@ -84,6 +117,8 @@ set(T_COSE_SRC_COMMON
     src/t_cose_recipient_enc_esdh.c
     src/t_cose_qcbor_gap.c
 )
+endif()
+
 
 find_package(QCBOR REQUIRED)
 
@@ -115,6 +150,8 @@ if (BUILD_EXAMPLES)
         set(EXAMPLE_SRC_EXTRA examples/init_keys_psa.c)
     elseif(CRYPTO_PROVIDER STREQUAL "OpenSSL")
         set(EXAMPLE_SRC_EXTRA examples/init_keys_ossl.c)
+    elseif(CRYPTO_PROVIDER STREQUAL "liboqs")
+        set(EXAMPLE_SRC_EXTRA examples/init_keys_liboqs.c)
     elseif(CRYPTO_PROVIDER STREQUAL "Test")
         set(EXAMPLE_SRC_EXTRA examples/init_keys_test.c)
     else()
@@ -131,44 +168,93 @@ if (BUILD_EXAMPLES)
 endif()
 
 
+
+
 if (BUILD_TESTS)
 
     enable_testing()
 
-    set(TEST_SRC_COMMON
-        main.c
-        test/run_tests.c
-        test/t_cose_compute_validate_mac_test.c
-        test/t_cose_crypto_test.c
-        test/t_cose_encrypt_decrypt_test.c
-        test/t_cose_make_test_messages.c
-        test/data/test_messages.c
-        test/t_cose_param_test.c
-        test/t_cose_test.c
-        examples/example_keys.c
-    )
+    if (NOT CRYPTO_PROVIDER STREQUAL "liboqs")
+        set(TEST_SRC_COMMON
+            main.c
+            test/run_tests.c
+            test/t_cose_compute_validate_mac_test.c
+            test/t_cose_crypto_test.c
+            test/t_cose_encrypt_decrypt_test.c
+            test/t_cose_make_test_messages.c
+            test/data/test_messages.c
+            test/t_cose_param_test.c
+            test/t_cose_test.c
+            examples/example_keys.c
+        )
+        
+        if (NOT CRYPTO_PROVIDER STREQUAL "Test")
+            list(APPEND TEST_SRC_COMMON test/t_cose_sign_verify_test.c)
+        endif()
 
-    if (NOT CRYPTO_PROVIDER STREQUAL "Test")
-        list(APPEND TEST_SRC_COMMON test/t_cose_sign_verify_test.c)
+        if (CRYPTO_PROVIDER STREQUAL "MbedTLS")
+            set(TEST_SRC_EXTRA examples/init_keys_psa.c)
+        elseif(CRYPTO_PROVIDER STREQUAL "OpenSSL")
+            set(TEST_SRC_EXTRA examples/init_keys_ossl.c)
+        elseif(CRYPTO_PROVIDER STREQUAL "Test")
+            set(TEST_SRC_EXTRA examples/init_keys_test.c)
+            set(TEST_EXTRA_DEFS -DT_COSE_ENABLE_HASH_FAIL_TEST -DT_COSE_DISABLE_SIGN_VERIFY_TESTS)
+        else()
+            message(FATAL_ERROR "Bug!")
+        endif()
+
+        add_executable(t_cose_test ${TEST_SRC_COMMON} ${TEST_SRC_EXTRA})
+        target_include_directories(t_cose_test PRIVATE src test examples)
+        target_link_libraries(t_cose_test PRIVATE t_cose ${CRYPTO_LIBRARY})
+        # Crypto defs are needed because the tests include headers from src/
+        target_compile_definitions(t_cose_test PRIVATE ${CRYPTO_COMPILE_DEFS} ${TEST_EXTRA_DEFS})
+
+        add_test(NAME t_cose_test COMMAND t_cose_test)
+
+    elseif(CRYPTO_PROVIDER STREQUAL "liboqs")
+
+        # === ML-DSA Sign Test ===
+        add_executable(t_cose_ml_dsa_sign
+            test/t_cose_ml_dsa_sign.c
+            examples/example_keys.c
+            examples/init_keys_liboqs.c
+        )
+
+        target_include_directories(t_cose_ml_dsa_sign
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc/t_cose
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
+        PRIVATE ${LIBOQS_INCLUDE_DIRS}
+        PRIVATE ${QCBOR_INCLUDE_DIR}
+        PRIVATE ${QCBOR_INCLUDE_DIR}/qcbor
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/examples
+        )
+        
+        target_link_libraries(t_cose_ml_dsa_sign
+        PRIVATE t_cose ${CRYPTO_LIBRARY} ${LIBOQS_LIBRARIES}
+        )
+
+        # === ML-DSA Verify Test ===
+        add_executable(t_cose_ml_dsa_verify
+            test/t_cose_ml_dsa_verify.c
+            examples/example_keys.c
+            examples/init_keys_liboqs.c
+        )
+
+        target_include_directories(t_cose_ml_dsa_verify
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc/t_cose
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
+        PRIVATE ${LIBOQS_INCLUDE_DIRS}
+        PRIVATE ${QCBOR_INCLUDE_DIR}
+        PRIVATE ${QCBOR_INCLUDE_DIR}/qcbor
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/examples
+        )
+
+        target_link_libraries(t_cose_ml_dsa_verify
+        PRIVATE t_cose ${CRYPTO_LIBRARY} ${LIBOQS_LIBRARIES}
+        )
     endif()
-
-    if (CRYPTO_PROVIDER STREQUAL "MbedTLS")
-        set(TEST_SRC_EXTRA examples/init_keys_psa.c)
-    elseif(CRYPTO_PROVIDER STREQUAL "OpenSSL")
-        set(TEST_SRC_EXTRA examples/init_keys_ossl.c)
-    elseif(CRYPTO_PROVIDER STREQUAL "Test")
-        set(TEST_SRC_EXTRA examples/init_keys_test.c)
-        set(TEST_EXTRA_DEFS -DT_COSE_ENABLE_HASH_FAIL_TEST -DT_COSE_DISABLE_SIGN_VERIFY_TESTS)
-    else()
-        message(FATAL_ERROR "Bug!")
-    endif()
-
-    add_executable(t_cose_test ${TEST_SRC_COMMON} ${TEST_SRC_EXTRA})
-    target_include_directories(t_cose_test PRIVATE src test examples)
-    target_link_libraries(t_cose_test PRIVATE t_cose ${CRYPTO_LIBRARY})
-    # Crypto defs are needed because the tests include headers from src/
-    target_compile_definitions(t_cose_test PRIVATE ${CRYPTO_COMPILE_DEFS} ${TEST_EXTRA_DEFS})
-
-    add_test(NAME t_cose_test COMMAND t_cose_test)
-
 endif()

@@ -41,6 +41,11 @@ t_cose_sign1_sign_init(struct t_cose_sign1_sign_ctx *me,
         t_cose_signature_sign_eddsa_init(&(me->signer.eddsa));
         t_cose_sign_add_signer(&(me->me2),
                        t_cose_signature_sign_from_eddsa(&(me->signer.eddsa)));
+    } else if (cose_algorithm_id == T_COSE_ALGORITHM_ML_DSA_44) {
+        t_cose_signature_sign_main_init(&(me->signer.general),
+                                        me->cose_algorithm_id);
+        t_cose_sign_add_signer(&(me->me2),
+                      t_cose_signature_sign_from_main(&(me->signer.general)));
     } else
     {
         t_cose_signature_sign_main_init(&(me->signer.general),

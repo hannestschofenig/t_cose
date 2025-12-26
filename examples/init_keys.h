@@ -51,6 +51,15 @@ void
 free_fixed_signing_key(struct t_cose_key key_pair);
 
 
+/* For ML-DSA a separate function for setting the verification key is added. */
+enum t_cose_err_t
+init_fixed_test_verification_key(int32_t            cose_algorithm_id,
+                            struct t_cose_key *key_pair);
+
+
+void
+free_fixed_verification_key(struct t_cose_key key_pair);
+
 
 
 /**

@@ -234,3 +234,14 @@ t_cose_sign_sign_private(struct t_cose_sign_sign_ctx *me,
 Done:
     return return_value;
 }
+
+/**
+ * Custom ML-DSA signing backend using liboqs
+ */
+enum t_cose_err_t t_cose_signature_sign_custom(
+    int32_t cose_algorithm_id,
+    struct q_useful_buf_c protected_parameters,
+    struct q_useful_buf_c payload,
+    struct t_cose_key signing_key,
+    struct q_useful_buf buffer_to_hold_result,
+    struct q_useful_buf_c *result);

@@ -215,6 +215,16 @@
  */
 #define T_COSE_ALGORITHM_EDDSA -8
 
+
+/**
+ * \def COSE_ALGORITHM_ML_DSA_44
+ *
+ * \brief CBOR Object Signing Algorithm for ML-DSA-44.
+ *
+ * Defined in draft-ietf-cose-dilithium
+ */
+#define T_COSE_ALGORITHM_ML_DSA_44 -48
+
 /**
  * \def COSE_ALGORITHM_ES384
  *
@@ -436,6 +446,7 @@
 #define T_COSE_ALGORITHM_SHORT_CIRCUIT_256 -1000256
 #define T_COSE_ALGORITHM_SHORT_CIRCUIT_384 -1000384
 #define T_COSE_ALGORITHM_SHORT_CIRCUIT_512 -1000512
+//#define T_COSE_ALGORITHM_SHORT_CIRCUIT_ML_DSA_44  -1000513
 
 /**
  * \def T_COSE_ALGORITHM_NONE

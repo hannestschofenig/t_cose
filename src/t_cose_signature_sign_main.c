@@ -20,6 +20,7 @@
 #include "t_cose/t_cose_parameters.h"
 #include "t_cose_util.h"
 #include "t_cose_crypto.h"
+#include "t_cose/t_cose_ml_dsa_signer.h"
 
 
 /** This is an implementation of \ref t_cose_signature_sign_headers_cb */
@@ -37,6 +38,22 @@ t_cose_signature_sign_headers_main_cb(struct t_cose_signature_sign   *me_x,
     }
 
     *params = me->local_params;
+}
+
+/** Custom signer for ML-DSA using liboqs */
+static enum t_cose_err_t
+t_cose_signature_sign_custom_ml_dsa(int32_t cose_algorithm_id,
+                                    struct q_useful_buf_c payload,
+                                    struct t_cose_key signing_key,
+                                    struct q_useful_buf buffer_for_signature,
+                                    struct q_useful_buf_c *signature_out)
+{
+    return t_cose_ml_dsa_signer(signing_key,
+                         cose_algorithm_id,
+                         NULL_Q_USEFUL_BUF_C,  // protected_parameters not used currently
+                         payload,
+                         buffer_for_signature,
+                         signature_out);
 }
 
 
@@ -60,6 +77,32 @@ t_cose_signature_sign1_main_cb(struct t_cose_signature_sign     *me_x,
     if(return_value != T_COSE_SUCCESS) {
         goto Done;
     }
+
+    QCBOREncode_OpenBytes(cbor_encoder, &buffer_for_signature);
+
+    if (me->cose_algorithm_id == T_COSE_ALGORITHM_ML_DSA_44) {
+        if (QCBOREncode_IsBufferNULL(cbor_encoder)) {
+            // Predict signature length (Dilithium2 = ~2420 bytes)
+            signature.ptr = NULL;
+            signature.len = 2420;
+            return T_COSE_SUCCESS;
+        } else {
+            return_value = t_cose_signature_sign_custom_ml_dsa(
+                me->cose_algorithm_id,
+                sign_inputs->payload,
+                me->signing_key,
+                buffer_for_signature,
+                &signature);
+
+            if (return_value != T_COSE_SUCCESS)
+                return return_value;
+
+            QCBOREncode_CloseBytes(cbor_encoder, signature.len);
+            return T_COSE_SUCCESS;
+        }
+    }
+
+    // The code below is executed only for non-ML-DSA algorithms
 
     /* The signature gets written directly into the output buffer.
      * The matching QCBOREncode_CloseBytes call further down still

@@ -19,9 +19,6 @@
 #include "t_cose_util.h"
 #include "t_cose_crypto.h"
 
-
-
-
 /* The list of algorithms supported by this verifier. */
 static bool
 sig_algorithm_check(int32_t cose_algorithm_id)
@@ -42,6 +39,9 @@ sig_algorithm_check(int32_t cose_algorithm_id)
 #endif
 #ifndef T_COSE_DISABLE_ES512
         T_COSE_ALGORITHM_ES512,
+#endif
+#ifndef T_COSE_DISABLE_ML_DSA_44
+        T_COSE_ALGORITHM_ML_DSA_44,
 #endif
 #ifndef T_COSE_DISABLE_SHORT_CIRCUIT_SIGN
         T_COSE_ALGORITHM_SHORT_CIRCUIT_256,
@@ -123,21 +123,33 @@ t_cose_signature_verify_main_cb(struct t_cose_signature_verify   *me_x,
         }
     }
 
-    /* --- Compute the hash of the to-be-signed bytes -- */
-    return_value = create_tbs_hash(cose_algorithm_id,
-                                   sign_inputs,
-                                   tbs_hash_buffer,
-                                   &tbs_hash);
-    if(return_value != T_COSE_SUCCESS) {
-        goto Done;
+    if (cose_algorithm_id == T_COSE_ALGORITHM_ML_DSA_44) {
+
+        /* -- Verify the signature -- */
+        // TBD: Here we should not only use the payload but Sig_structure
+        return_value = t_cose_crypto_verify(cose_algorithm_id,
+                                            me->verification_key,
+                                            me->crypto_context,
+                                            sign_inputs->payload,
+                                            signature);
+    } else {
+        /* --- Compute the hash of the to-be-signed bytes -- */
+        return_value = create_tbs_hash(cose_algorithm_id,
+                                    sign_inputs,
+                                    tbs_hash_buffer,
+                                    &tbs_hash);
+        if(return_value != T_COSE_SUCCESS) {
+            goto Done;
+        }
+
+        /* -- Verify the signature -- */
+        return_value = t_cose_crypto_verify(cose_algorithm_id,
+                                            me->verification_key,
+                                            me->crypto_context,
+                                            tbs_hash,
+                                            signature);
     }
 
-    /* -- Verify the signature -- */
-    return_value = t_cose_crypto_verify(cose_algorithm_id,
-                                        me->verification_key,
-                                        me->crypto_context,
-                                        tbs_hash,
-                                        signature);
 Done:
     return return_value;
 }

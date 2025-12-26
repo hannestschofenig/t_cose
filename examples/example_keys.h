@@ -13,6 +13,8 @@
 #ifndef example_keys_h
 #define example_keys_h
 
+#include <stdint.h>
+
 
 /* These are hard-coded keys used for testing. A big reason for hard
  * coding in byte arrays is so that tests don't need any extra
@@ -271,5 +273,9 @@ extern const unsigned char RSA_2048_key_pair_der[1191];
  */
 extern const unsigned char ed25519_key_pair_der[48];
 
+/* Example keys for ML-DSA-44 */
+
+extern const uint8_t ml_dsa_44_private_key[2560];
+extern const uint8_t ml_dsa_44_public_key[1312];
 
 #endif /* example_keys_h */

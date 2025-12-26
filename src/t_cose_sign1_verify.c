@@ -41,6 +41,10 @@ t_cose_sign1_verify_init(struct t_cose_sign1_verify_ctx *me,
     t_cose_signature_verify_eddsa_init(&(me->eddsa_verifier), option_flags);
     t_cose_sign_add_verifier(&(me->me2),
                     t_cose_signature_verify_from_eddsa(&(me->eddsa_verifier)));
+
+    t_cose_signature_verify_mldsa_init(&(me->mldsa_verifier), option_flags);
+    t_cose_sign_add_verifier(&(me->me2),
+                    t_cose_signature_verify_from_mldsa(&(me->mldsa_verifier)));
 }
 
 
@@ -48,7 +52,7 @@ void
 t_cose_sign1_set_verification_key(struct t_cose_sign1_verify_ctx *me,
                                   struct t_cose_key           verification_key)
 {
-    /* Set the same key for both. We don't know which verifier will be used
+    /* Set the same key for all algorithms. We don't know which verifier will be used
      * until decoding the input. There is only one key in t_cose_sign1().
      * Also, t_cose_sign1 didn't do any kid matching, so it is NULL here.
      */
@@ -57,6 +61,10 @@ t_cose_sign1_set_verification_key(struct t_cose_sign1_verify_ctx *me,
                                           // TODO: should this be NULL?
                                           NULL_Q_USEFUL_BUF_C);
     t_cose_signature_verify_main_set_key(&(me->main_verifier),
+                                         verification_key,
+                                         NULL_Q_USEFUL_BUF_C);
+
+    t_cose_signature_verify_mldsa_set_key(&(me->mldsa_verifier),
                                          verification_key,
                                          NULL_Q_USEFUL_BUF_C);
 }
