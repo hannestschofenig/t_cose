@@ -256,5 +256,11 @@ if (BUILD_TESTS)
         target_link_libraries(t_cose_ml_dsa_verify
         PRIVATE t_cose ${CRYPTO_LIBRARY} ${LIBOQS_LIBRARIES}
         )
+
+        # === Generate ML-DSA Keys ===
+        add_executable(gen_mldsa_keys test/gen_mldsa_keys.c)
+        target_include_directories(gen_mldsa_keys PRIVATE ${LIBOQS_INCLUDE_DIRS})
+        target_link_libraries(gen_mldsa_keys PRIVATE ${LIBOQS_LIBRARIES} ${CRYPTO_LIBRARY})
+        
     endif()
 endif()

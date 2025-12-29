@@ -31,7 +31,9 @@ t_cose_signature_verify_mldsa_cb(struct t_cose_signature_verify *me_x,
         return_value = T_COSE_ERR_NO_ALG_ID;
         goto Done;
     }
-    if(cose_algorithm_id != T_COSE_ALGORITHM_ML_DSA_44) {
+    if(cose_algorithm_id != T_COSE_ALGORITHM_ML_DSA_44 &&
+       cose_algorithm_id != T_COSE_ALGORITHM_ML_DSA_65 &&
+       cose_algorithm_id != T_COSE_ALGORITHM_ML_DSA_87) {
         return_value = T_COSE_ERR_UNSUPPORTED_SIGNING_ALG;
         goto Done;
     }

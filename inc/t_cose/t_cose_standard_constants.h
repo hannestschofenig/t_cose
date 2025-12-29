@@ -226,6 +226,24 @@
 #define T_COSE_ALGORITHM_ML_DSA_44 -48
 
 /**
+ * \def COSE_ALGORITHM_ML_DSA_65
+ *
+ * \brief CBOR Object Signing Algorithm for ML-DSA-65.
+ *
+ * Defined in draft-ietf-cose-dilithium
+ */
+#define T_COSE_ALGORITHM_ML_DSA_65 -49
+
+/**
+ * \def COSE_ALGORITHM_ML_DSA_87
+ *
+ * \brief CBOR Object Signing Algorithm for ML-DSA-87.
+ *
+ * Defined in draft-ietf-cose-dilithium
+ */
+#define T_COSE_ALGORITHM_ML_DSA_87 -50
+
+/**
  * \def COSE_ALGORITHM_ES384
  *
  * \brief Indicates ECDSA with SHA-384.

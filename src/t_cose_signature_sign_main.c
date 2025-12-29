@@ -21,6 +21,14 @@
 #include "t_cose_util.h"
 #include "t_cose_crypto.h"
 #include "t_cose/t_cose_ml_dsa_signer.h"
+#include <stdbool.h>
+
+static bool algorithm_is_mldsa(int32_t cose_algorithm_id)
+{
+    return cose_algorithm_id == T_COSE_ALGORITHM_ML_DSA_44 ||
+           cose_algorithm_id == T_COSE_ALGORITHM_ML_DSA_65 ||
+           cose_algorithm_id == T_COSE_ALGORITHM_ML_DSA_87;
+}
 
 
 /** This is an implementation of \ref t_cose_signature_sign_headers_cb */
@@ -80,12 +88,12 @@ t_cose_signature_sign1_main_cb(struct t_cose_signature_sign     *me_x,
 
     QCBOREncode_OpenBytes(cbor_encoder, &buffer_for_signature);
 
-    if (me->cose_algorithm_id == T_COSE_ALGORITHM_ML_DSA_44) {
+    if (algorithm_is_mldsa(me->cose_algorithm_id)) {
         if (QCBOREncode_IsBufferNULL(cbor_encoder)) {
-            // Predict signature length (Dilithium2 = ~2420 bytes)
             signature.ptr = NULL;
-            signature.len = 2420;
-            return T_COSE_SUCCESS;
+            return_value = t_cose_crypto_sig_size(me->cose_algorithm_id,
+                                                  me->signing_key,
+                                                  &signature.len);
         } else {
             return_value = t_cose_signature_sign_custom_ml_dsa(
                 me->cose_algorithm_id,
@@ -93,58 +101,42 @@ t_cose_signature_sign1_main_cb(struct t_cose_signature_sign     *me_x,
                 me->signing_key,
                 buffer_for_signature,
                 &signature);
-
-            if (return_value != T_COSE_SUCCESS)
-                return return_value;
-
-            QCBOREncode_CloseBytes(cbor_encoder, signature.len);
-            return T_COSE_SUCCESS;
         }
-    }
-
-    // The code below is executed only for non-ML-DSA algorithms
-
-    /* The signature gets written directly into the output buffer.
-     * The matching QCBOREncode_CloseBytes call further down still
-     * needs do a memmove to make space for the CBOR header, but
-     * at least we avoid the need to allocate an extra buffer.
-     */
-    QCBOREncode_OpenBytes(cbor_encoder, &buffer_for_signature);
-
-    if (QCBOREncode_IsBufferNULL(cbor_encoder)) {
-        /* Size calculation mode */
-        signature.ptr = NULL;
-        t_cose_crypto_sig_size(me->cose_algorithm_id,
-                               me->signing_key,
-                               &signature.len);
-
-        return_value = T_COSE_SUCCESS;
-
     } else {
-        /* Run the crypto to produce the signature */
+        if (QCBOREncode_IsBufferNULL(cbor_encoder)) {
+            /* Size calculation mode */
+            signature.ptr = NULL;
+            return_value = t_cose_crypto_sig_size(me->cose_algorithm_id,
+                                                  me->signing_key,
+                                                  &signature.len);
+        } else {
+            /* Run the crypto to produce the signature */
 
-        /* Create the hash of the to-be-signed bytes. Inputs to the
-         * hash are the protected parameters, the payload that is
-         * getting signed, the cose signature alg from which the hash
-         * alg is determined. The cose_algorithm_id was checked in
-         * t_cose_sign_init() so it doesn't need to be checked here.
-         */
-        return_value = create_tbs_hash(me->cose_algorithm_id,
-                                       sign_inputs,
-                                       buffer_for_tbs_hash,
-                                      &tbs_hash);
-        if(return_value) {
-            goto Done;
+            /* Create the hash of the to-be-signed bytes. Inputs to the
+             * hash are the protected parameters, the payload that is
+             * getting signed, the cose signature alg from which the hash
+             * alg is determined. The cose_algorithm_id was checked in
+             * t_cose_sign_init() so it doesn't need to be checked here.
+             */
+            return_value = create_tbs_hash(me->cose_algorithm_id,
+                                           sign_inputs,
+                                           buffer_for_tbs_hash,
+                                          &tbs_hash);
+            if(return_value) {
+                goto Done;
+            }
+
+            return_value = t_cose_crypto_sign(me->cose_algorithm_id,
+                                              me->signing_key,
+                                              me->crypto_context,
+                                              tbs_hash,
+                                              buffer_for_signature,
+                                             &signature);
         }
-
-        return_value = t_cose_crypto_sign(me->cose_algorithm_id,
-                                          me->signing_key,
-                                          me->crypto_context,
-                                          tbs_hash,
-                                          buffer_for_signature,
-                                         &signature);
     }
-    QCBOREncode_CloseBytes(cbor_encoder, signature.len);
+    if (return_value == T_COSE_SUCCESS) {
+        QCBOREncode_CloseBytes(cbor_encoder, signature.len);
+    }
 
 Done:
     return return_value;

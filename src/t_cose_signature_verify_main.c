@@ -18,6 +18,7 @@
 #include "t_cose/t_cose_parameters.h"
 #include "t_cose_util.h"
 #include "t_cose_crypto.h"
+#include <stdbool.h>
 
 /* The list of algorithms supported by this verifier. */
 static bool
@@ -43,6 +44,12 @@ sig_algorithm_check(int32_t cose_algorithm_id)
 #ifndef T_COSE_DISABLE_ML_DSA_44
         T_COSE_ALGORITHM_ML_DSA_44,
 #endif
+#ifndef T_COSE_DISABLE_ML_DSA_65
+        T_COSE_ALGORITHM_ML_DSA_65,
+#endif
+#ifndef T_COSE_DISABLE_ML_DSA_87
+        T_COSE_ALGORITHM_ML_DSA_87,
+#endif
 #ifndef T_COSE_DISABLE_SHORT_CIRCUIT_SIGN
         T_COSE_ALGORITHM_SHORT_CIRCUIT_256,
         T_COSE_ALGORITHM_SHORT_CIRCUIT_384,
@@ -52,6 +59,14 @@ sig_algorithm_check(int32_t cose_algorithm_id)
     };
 
     return t_cose_check_list(cose_algorithm_id, supported_algorithms);
+}
+
+static bool
+sig_algorithm_is_mldsa(int32_t cose_algorithm_id)
+{
+    return cose_algorithm_id == T_COSE_ALGORITHM_ML_DSA_44 ||
+           cose_algorithm_id == T_COSE_ALGORITHM_ML_DSA_65 ||
+           cose_algorithm_id == T_COSE_ALGORITHM_ML_DSA_87;
 }
 
 
@@ -123,7 +138,7 @@ t_cose_signature_verify_main_cb(struct t_cose_signature_verify   *me_x,
         }
     }
 
-    if (cose_algorithm_id == T_COSE_ALGORITHM_ML_DSA_44) {
+    if (sig_algorithm_is_mldsa(cose_algorithm_id)) {
 
         /* -- Verify the signature -- */
         // TBD: Here we should not only use the payload but Sig_structure
