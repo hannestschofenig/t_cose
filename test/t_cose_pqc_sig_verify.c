@@ -1,7 +1,9 @@
 #include "t_cose/t_cose_sign1_verify.h"
 #include "t_cose/t_cose_key.h"
 #include "t_cose/t_cose_common.h"
+#include "t_cose/t_cose_pqc_sig_alg.h"
 #include "qcbor/UsefulBuf.h"
+#include "qcbor/qcbor_decode.h"
 #include "oqs/oqs.h"
 #include <errno.h>
 #include <stdio.h>
@@ -83,28 +85,41 @@ static int read_file(const char *path, struct file_buffer *out)
 }
 
 
-static int32_t mldsa_alg_from_pub_len(size_t len, const char **name)
+struct cose_pub_key {
+    int32_t alg_id;
+    struct q_useful_buf_c pub;
+};
+
+static bool parse_cose_pub(const uint8_t *buf, size_t len, struct cose_pub_key *out)
 {
-    if (len == OQS_SIG_ml_dsa_44_length_public_key) {
-        if (name) {
-            *name = "ML-DSA-44";
-        }
-        return T_COSE_ALGORITHM_ML_DSA_44;
-    }
-    if (len == OQS_SIG_ml_dsa_65_length_public_key) {
-        if (name) {
-            *name = "ML-DSA-65";
-        }
-        return T_COSE_ALGORITHM_ML_DSA_65;
-    }
-    if (len == OQS_SIG_ml_dsa_87_length_public_key) {
-        if (name) {
-            *name = "ML-DSA-87";
-        }
-        return T_COSE_ALGORITHM_ML_DSA_87;
+    UsefulBufC input = {.ptr = buf, .len = len};
+    QCBORDecodeContext dc;
+    QCBORItem item;
+    bool have_pub = false;
+    int32_t alg = 0;
+
+    QCBORDecode_Init(&dc, input, QCBOR_DECODE_MODE_NORMAL);
+
+    if(QCBORDecode_GetNext(&dc, &item) != QCBOR_SUCCESS || item.uDataType != QCBOR_TYPE_MAP) {
+        return false;
     }
 
-    return 0;
+    while(QCBORDecode_GetNext(&dc, &item) == QCBOR_SUCCESS) {
+        if(item.uLabelType == QCBOR_TYPE_INT64 && item.label.int64 == 3 && item.uDataType == QCBOR_TYPE_INT64) {
+            alg = (int32_t)item.val.int64;
+        } else if(item.uLabelType == QCBOR_TYPE_INT64 && item.label.int64 == -1 && item.uDataType == QCBOR_TYPE_BYTE_STRING) {
+            out->pub = item.val.string;
+            have_pub = true;
+        }
+    }
+    if(QCBORDecode_Finish(&dc) != QCBOR_SUCCESS) {
+        return false;
+    }
+    if(!have_pub) {
+        return false;
+    }
+    out->alg_id = alg;
+    return true;
 }
 
 
@@ -132,14 +147,21 @@ int main(int argc, char **argv)
         goto cleanup;
     }
 
-    int32_t cose_alg_id = mldsa_alg_from_pub_len(pub_key.len, &alg_name);
-    if (cose_alg_id == 0) {
-        fprintf(stderr, "Unsupported public key size: %zu bytes. "
-                        "Expected %zu (ML-DSA-44), %zu (ML-DSA-65), or %zu (ML-DSA-87).\n",
-                pub_key.len,
-                (size_t)OQS_SIG_ml_dsa_44_length_public_key,
-                (size_t)OQS_SIG_ml_dsa_65_length_public_key,
-                (size_t)OQS_SIG_ml_dsa_87_length_public_key);
+    struct cose_pub_key cose_pub = {0};
+    if(!parse_cose_pub(pub_key.data, pub_key.len, &cose_pub)) {
+        fprintf(stderr, "Failed to parse COSE_Key public key\n");
+        goto cleanup;
+    }
+
+    const struct t_cose_pqc_alg *entry = t_cose_find_pqc_alg(cose_pub.alg_id);
+    if(!entry) {
+        fprintf(stderr, "Unsupported algorithm id in key: %d\n", cose_pub.alg_id);
+        goto cleanup;
+    }
+    alg_name = entry->display_name;
+    if(cose_pub.pub.len != entry->pub_key_len) {
+        fprintf(stderr, "Public key length mismatch for %s: got %zu, expected %zu\n",
+                alg_name, cose_pub.pub.len, entry->pub_key_len);
         goto cleanup;
     }
 
@@ -150,8 +172,8 @@ int main(int argc, char **argv)
         .len = signed_cose_buf.len
     };
 
-    verify_key.key.buffer.ptr = pub_key.data;
-    verify_key.key.buffer.len = pub_key.len;
+    verify_key.key.buffer.ptr = (uint8_t *)cose_pub.pub.ptr;
+    verify_key.key.buffer.len = cose_pub.pub.len;
 
     t_cose_sign1_verify_init(&verify_ctx, 0);
     t_cose_sign1_set_verification_key(&verify_ctx, verify_key);

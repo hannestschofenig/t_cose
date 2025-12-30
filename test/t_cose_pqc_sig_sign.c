@@ -3,6 +3,8 @@
 #include "qcbor/qcbor.h"
 #include "t_cose/t_cose_standard_constants.h"
 #include "t_cose/t_cose_signature_sign.h"
+#include "t_cose/t_cose_pqc_sig_alg.h"
+#include "qcbor/qcbor_decode.h"
 #include "oqs/oqs.h"
 #include <string.h>
 #include <stdio.h>
@@ -70,24 +72,41 @@ static bool write_file(const char *path, const uint8_t *data, size_t len)
     return written == len;
 }
 
-static bool alg_from_priv_len(size_t len, int32_t *alg, const char **name)
+struct cose_priv_key {
+    int32_t alg_id;
+    struct q_useful_buf_c priv;
+};
+
+static bool parse_cose_priv(const uint8_t *buf, size_t len, struct cose_priv_key *out)
 {
-    if(len == OQS_SIG_ml_dsa_44_length_secret_key) {
-        *alg  = T_COSE_ALGORITHM_ML_DSA_44;
-        *name = "ML-DSA-44";
-        return true;
+    UsefulBufC input = {.ptr = buf, .len = len};
+    QCBORDecodeContext dc;
+    QCBORItem item;
+    bool have_priv = false;
+    int32_t alg = 0;
+
+    QCBORDecode_Init(&dc, input, QCBOR_DECODE_MODE_NORMAL);
+
+    if(QCBORDecode_GetNext(&dc, &item) != QCBOR_SUCCESS || item.uDataType != QCBOR_TYPE_MAP) {
+        return false;
     }
-    if(len == OQS_SIG_ml_dsa_65_length_secret_key) {
-        *alg  = T_COSE_ALGORITHM_ML_DSA_65;
-        *name = "ML-DSA-65";
-        return true;
+
+    while(QCBORDecode_GetNext(&dc, &item) == QCBOR_SUCCESS) {
+        if(item.uLabelType == QCBOR_TYPE_INT64 && item.label.int64 == 3 && item.uDataType == QCBOR_TYPE_INT64) {
+            alg = (int32_t)item.val.int64;
+        } else if(item.uLabelType == QCBOR_TYPE_INT64 && item.label.int64 == -2 && item.uDataType == QCBOR_TYPE_BYTE_STRING) {
+            out->priv = item.val.string;
+            have_priv = true;
+        }
     }
-    if(len == OQS_SIG_ml_dsa_87_length_secret_key) {
-        *alg  = T_COSE_ALGORITHM_ML_DSA_87;
-        *name = "ML-DSA-87";
-        return true;
+    if(QCBORDecode_Finish(&dc) != QCBOR_SUCCESS) {
+        return false;
     }
-    return false;
+    if(!have_priv) {
+        return false;
+    }
+    out->alg_id = alg;
+    return true;
 }
 
 int main(int argc, char **argv) {
@@ -107,14 +126,26 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    struct cose_priv_key cose_priv = {0};
+    if(!parse_cose_priv(priv_buf, priv_len, &cose_priv)) {
+        printf("Failed to parse COSE_Key private key\n");
+        free(priv_buf);
+        return 1;
+    }
+
     int32_t alg_id = 0;
     const char *alg_name = NULL;
-    if(!alg_from_priv_len(priv_len, &alg_id, &alg_name)) {
-        printf("Unsupported private key size: %zu bytes. Expected %zu (ML-DSA-44), %zu (ML-DSA-65), or %zu (ML-DSA-87).\n",
-               priv_len,
-               (size_t)OQS_SIG_ml_dsa_44_length_secret_key,
-               (size_t)OQS_SIG_ml_dsa_65_length_secret_key,
-               (size_t)OQS_SIG_ml_dsa_87_length_secret_key);
+    const struct t_cose_pqc_alg *entry = t_cose_find_pqc_alg(cose_priv.alg_id);
+    if(!entry) {
+        printf("Unsupported algorithm id in key: %d\n", cose_priv.alg_id);
+        free(priv_buf);
+        return 1;
+    }
+    alg_id = entry->cose_alg_id;
+    alg_name = entry->display_name;
+    if(cose_priv.priv.len != entry->sec_key_len) {
+        printf("Private key length mismatch for %s: got %zu, expected %zu\n",
+               alg_name, cose_priv.priv.len, entry->sec_key_len);
         free(priv_buf);
         return 1;
     }
@@ -133,11 +164,19 @@ int main(int argc, char **argv) {
     struct q_useful_buf_c payload = {payload_buf, payload_len};
     enum t_cose_err_t result;
 
-    UsefulBuf_MAKE_STACK_UB(signature_buf, OQS_SIG_ml_dsa_87_length_signature + 512);
+    size_t sig_buf_len = entry->sig_len + 512; /* room for CBOR wrapping */
+    uint8_t *sig_storage = malloc(sig_buf_len);
+    if(!sig_storage) {
+        printf("Out of memory\n");
+        free(payload_buf);
+        free(priv_buf);
+        return 1;
+    }
+    struct q_useful_buf signature_buf = {sig_storage, sig_buf_len};
     struct q_useful_buf_c signed_cose;
 
-    signing_key.key.buffer.ptr = priv_buf;
-    signing_key.key.buffer.len = priv_len;
+    signing_key.key.buffer.ptr = (uint8_t *)cose_priv.priv.ptr;
+    signing_key.key.buffer.len = cose_priv.priv.len;
 
     t_cose_sign1_sign_init(&sign_ctx, 0, alg_id);
     t_cose_sign1_set_signing_key(&sign_ctx, signing_key, kid);
@@ -164,5 +203,6 @@ int main(int argc, char **argv) {
 
     free(payload_buf);
     free(priv_buf);
+    free(sig_storage);
     return 0;
 }

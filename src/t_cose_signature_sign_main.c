@@ -20,14 +20,12 @@
 #include "t_cose/t_cose_parameters.h"
 #include "t_cose_util.h"
 #include "t_cose_crypto.h"
-#include "t_cose/t_cose_ml_dsa_signer.h"
+#include "t_cose/t_cose_pqc_sig_alg.h"
 #include <stdbool.h>
 
-static bool algorithm_is_mldsa(int32_t cose_algorithm_id)
+static bool algorithm_is_pqc(int32_t cose_algorithm_id)
 {
-    return cose_algorithm_id == T_COSE_ALGORITHM_ML_DSA_44 ||
-           cose_algorithm_id == T_COSE_ALGORITHM_ML_DSA_65 ||
-           cose_algorithm_id == T_COSE_ALGORITHM_ML_DSA_87;
+    return t_cose_find_pqc_alg(cose_algorithm_id) != NULL;
 }
 
 
@@ -47,23 +45,6 @@ t_cose_signature_sign_headers_main_cb(struct t_cose_signature_sign   *me_x,
 
     *params = me->local_params;
 }
-
-/** Custom signer for ML-DSA using liboqs */
-static enum t_cose_err_t
-t_cose_signature_sign_custom_ml_dsa(int32_t cose_algorithm_id,
-                                    struct q_useful_buf_c payload,
-                                    struct t_cose_key signing_key,
-                                    struct q_useful_buf buffer_for_signature,
-                                    struct q_useful_buf_c *signature_out)
-{
-    return t_cose_ml_dsa_signer(signing_key,
-                         cose_algorithm_id,
-                         NULL_Q_USEFUL_BUF_C,  // protected_parameters not used currently
-                         payload,
-                         buffer_for_signature,
-                         signature_out);
-}
-
 
 /** This is an implementation of \ref t_cose_signature_sign_cb */
 static enum t_cose_err_t
@@ -88,19 +69,19 @@ t_cose_signature_sign1_main_cb(struct t_cose_signature_sign     *me_x,
 
     QCBOREncode_OpenBytes(cbor_encoder, &buffer_for_signature);
 
-    if (algorithm_is_mldsa(me->cose_algorithm_id)) {
+    if (algorithm_is_pqc(me->cose_algorithm_id)) {
         if (QCBOREncode_IsBufferNULL(cbor_encoder)) {
             signature.ptr = NULL;
             return_value = t_cose_crypto_sig_size(me->cose_algorithm_id,
                                                   me->signing_key,
                                                   &signature.len);
         } else {
-            return_value = t_cose_signature_sign_custom_ml_dsa(
-                me->cose_algorithm_id,
-                sign_inputs->payload,
-                me->signing_key,
-                buffer_for_signature,
-                &signature);
+            return_value = t_cose_crypto_sign(me->cose_algorithm_id,
+                                              me->signing_key,
+                                              NULL,
+                                              sign_inputs->payload,
+                                              buffer_for_signature,
+                                              &signature);
         }
     } else {
         if (QCBOREncode_IsBufferNULL(cbor_encoder)) {

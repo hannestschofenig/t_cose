@@ -244,6 +244,51 @@
 #define T_COSE_ALGORITHM_ML_DSA_87 -50
 
 /**
+ * \def COSE_ALGORITHM_SLH_DSA_SHA2_128S
+ *
+ * \brief CBOR Object Signing Algorithm for SLH-DSA-SHA2-128s.
+ *
+ * Defined in draft-ietf-cose-sphincs-plus
+ */
+#define T_COSE_ALGORITHM_SLH_DSA_SHA2_128S -51
+
+/**
+ * \def COSE_ALGORITHM_SLH_DSA_SHAKE_128S
+ *
+ * \brief CBOR Object Signing Algorithm for SLH-DSA-SHAKE-128s.
+ *
+ * Defined in draft-ietf-cose-sphincs-plus
+ */
+#define T_COSE_ALGORITHM_SLH_DSA_SHAKE_128S -52
+
+/**
+ * \def COSE_ALGORITHM_SLH_DSA_SHA2_128F
+ *
+ * \brief CBOR Object Signing Algorithm for SLH-DSA-SHA2-128f.
+ *
+ * Defined in draft-ietf-cose-sphincs-plus
+ */
+#define T_COSE_ALGORITHM_SLH_DSA_SHA2_128F -53
+
+/**
+ * \def COSE_ALGORITHM_FN_DSA_512
+ *
+ * \brief CBOR Object Signing Algorithm for FN-DSA-512 (Falcon-512).
+ *
+ * Defined in draft-ietf-cose-falcon
+ */
+#define T_COSE_ALGORITHM_FN_DSA_512 -54
+
+/**
+ * \def COSE_ALGORITHM_FN_DSA_1024
+ *
+ * \brief CBOR Object Signing Algorithm for FN-DSA-1024 (Falcon-1024).
+ *
+ * Defined in draft-ietf-cose-falcon
+ */
+#define T_COSE_ALGORITHM_FN_DSA_1024 -55
+
+/**
  * \def COSE_ALGORITHM_ES384
  *
  * \brief Indicates ECDSA with SHA-384.

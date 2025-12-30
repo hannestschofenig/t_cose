@@ -16,6 +16,7 @@
 #include "t_cose/t_cose_signature_verify_main.h"
 #include "t_cose/t_cose_signature_verify.h"
 #include "t_cose/t_cose_parameters.h"
+#include "t_cose/t_cose_pqc_sig_alg.h"
 #include "t_cose_util.h"
 #include "t_cose_crypto.h"
 #include <stdbool.h>
@@ -58,15 +59,17 @@ sig_algorithm_check(int32_t cose_algorithm_id)
         T_COSE_ALGORITHM_NONE
     };
 
+    if (t_cose_find_pqc_alg(cose_algorithm_id) != NULL) {
+        return true;
+    }
+
     return t_cose_check_list(cose_algorithm_id, supported_algorithms);
 }
 
 static bool
-sig_algorithm_is_mldsa(int32_t cose_algorithm_id)
+sig_algorithm_is_pqc(int32_t cose_algorithm_id)
 {
-    return cose_algorithm_id == T_COSE_ALGORITHM_ML_DSA_44 ||
-           cose_algorithm_id == T_COSE_ALGORITHM_ML_DSA_65 ||
-           cose_algorithm_id == T_COSE_ALGORITHM_ML_DSA_87;
+    return t_cose_find_pqc_alg(cose_algorithm_id) != NULL;
 }
 
 
@@ -138,7 +141,7 @@ t_cose_signature_verify_main_cb(struct t_cose_signature_verify   *me_x,
         }
     }
 
-    if (sig_algorithm_is_mldsa(cose_algorithm_id)) {
+    if (sig_algorithm_is_pqc(cose_algorithm_id)) {
 
         /* -- Verify the signature -- */
         // TBD: Here we should not only use the payload but Sig_structure

@@ -3,6 +3,7 @@
 #include "t_cose/t_cose_signature_verify.h"
 #include "t_cose/t_cose_standard_constants.h"
 #include "t_cose/t_cose_signature_verify_mldsa.h"
+#include "t_cose/t_cose_pqc_sig_alg.h"
 #include "t_cose_crypto.h"
 #include "qcbor/qcbor.h"
 #include "qcbor/UsefulBuf.h"
@@ -31,9 +32,7 @@ t_cose_signature_verify_mldsa_cb(struct t_cose_signature_verify *me_x,
         return_value = T_COSE_ERR_NO_ALG_ID;
         goto Done;
     }
-    if(cose_algorithm_id != T_COSE_ALGORITHM_ML_DSA_44 &&
-       cose_algorithm_id != T_COSE_ALGORITHM_ML_DSA_65 &&
-       cose_algorithm_id != T_COSE_ALGORITHM_ML_DSA_87) {
+    if(t_cose_find_pqc_alg(cose_algorithm_id) == NULL) {
         return_value = T_COSE_ERR_UNSUPPORTED_SIGNING_ALG;
         goto Done;
     }

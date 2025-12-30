@@ -1,0 +1,43 @@
+# Minimal CDDL for the COSE structures used here (RFC 9052 plus AKP keys
+# from PQC drafts such as draft-ietf-cose-dilithium, -falcon, -sphincs-plus).
+#
+# This is intentionally compact; extend as needed for additional headers.
+
+;label 1 kty
+;label 2 kid
+;label 3 alg
+;label -1 pub
+;label -2 priv
+
+COSE_Key = {
+  1 => key_type,
+  3 => alg_id,
+  ?2 => bstr,            ; kid
+  ?-1 => bstr,           ; public key (AKP: pub)
+  ?-2 => bstr,           ; private key (AKP: priv)
+  * int => any           ; extension point
+}
+
+key_type = 7             ; AKP (Algorithm Key Pair)
+
+; Algorithm IDs (int) from IANA/drafts, e.g.:
+; -48  ; ML-DSA-44
+; -49  ; ML-DSA-65
+; -50  ; ML-DSA-87
+; -51  ; SLH-DSA-SHA2-128s
+; -52  ; SLH-DSA-SHAKE-128s
+; -53  ; SLH-DSA-SHA2-128f
+; -54  ; FN-DSA-512
+; -55  ; FN-DSA-1024
+alg_id = int
+
+COSE_Sign1 = [
+  protected : bstr .cbor header_map,
+  unprotected : { * label => any },
+  payload : bstr / nil,
+  signature : bstr
+]
+
+header_map = { * label => any }
+
+label = int / tstr

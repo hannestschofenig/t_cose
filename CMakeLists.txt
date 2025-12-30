@@ -75,7 +75,7 @@ add_compile_options(-pedantic -Wall)
 if(CRYPTO_PROVIDER STREQUAL "liboqs")
 set(T_COSE_SRC_COMMON
     src/t_cose_sign1_sign.c
-    src/t_cose_ml_dsa_signer.c
+    src/t_cose_pqc_sig_alg.c
     src/t_cose_parameters.c
     src/t_cose_sign1_verify.c
     src/t_cose_util.c
@@ -93,7 +93,7 @@ set(T_COSE_SRC_COMMON
 else()
 set(T_COSE_SRC_COMMON
     src/t_cose_sign1_sign.c
-    src/t_cose_ml_dsa_signer.c
+    src/t_cose_pqc_sig_alg.c
     src/t_cose_parameters.c
     src/t_cose_sign1_verify.c
     src/t_cose_util.c
@@ -213,14 +213,14 @@ if (BUILD_TESTS)
 
     elseif(CRYPTO_PROVIDER STREQUAL "liboqs")
 
-        # === ML-DSA Sign Test ===
-        add_executable(t_cose_ml_dsa_sign
-            test/t_cose_ml_dsa_sign.c
+        # === PQC Sign Test ===
+        add_executable(t_cose_pqc_sig_sign
+            test/t_cose_pqc_sig_sign.c
             examples/example_keys.c
             examples/init_keys_liboqs.c
         )
 
-        target_include_directories(t_cose_ml_dsa_sign
+        target_include_directories(t_cose_pqc_sig_sign
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc/t_cose
@@ -231,18 +231,18 @@ if (BUILD_TESTS)
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/examples
         )
         
-        target_link_libraries(t_cose_ml_dsa_sign
+        target_link_libraries(t_cose_pqc_sig_sign
         PRIVATE t_cose ${CRYPTO_LIBRARY} ${LIBOQS_LIBRARIES}
         )
 
-        # === ML-DSA Verify Test ===
-        add_executable(t_cose_ml_dsa_verify
-            test/t_cose_ml_dsa_verify.c
+        # === PQC Verify Test ===
+        add_executable(t_cose_pqc_sig_verify
+            test/t_cose_pqc_sig_verify.c
             examples/example_keys.c
             examples/init_keys_liboqs.c
         )
 
-        target_include_directories(t_cose_ml_dsa_verify
+        target_include_directories(t_cose_pqc_sig_verify
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc/t_cose
@@ -253,14 +253,18 @@ if (BUILD_TESTS)
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/examples
         )
 
-        target_link_libraries(t_cose_ml_dsa_verify
+        target_link_libraries(t_cose_pqc_sig_verify
         PRIVATE t_cose ${CRYPTO_LIBRARY} ${LIBOQS_LIBRARIES}
         )
 
-        # === Generate ML-DSA Keys ===
-        add_executable(gen_mldsa_keys test/gen_mldsa_keys.c)
-        target_include_directories(gen_mldsa_keys PRIVATE ${LIBOQS_INCLUDE_DIRS})
-        target_link_libraries(gen_mldsa_keys PRIVATE ${LIBOQS_LIBRARIES} ${CRYPTO_LIBRARY})
+        # === Generate PQC Signature Keys ===
+        add_executable(gen_pqc_sig_keys test/gen_pqc_sig_keys.c src/t_cose_pqc_sig_alg.c)
+        target_include_directories(gen_pqc_sig_keys
+            PRIVATE ${LIBOQS_INCLUDE_DIRS}
+            PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc
+            PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
+        )
+        target_link_libraries(gen_pqc_sig_keys PRIVATE ${LIBOQS_LIBRARIES} ${CRYPTO_LIBRARY} qcbor)
         
     endif()
 endif()

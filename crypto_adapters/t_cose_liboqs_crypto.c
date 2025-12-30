@@ -13,56 +13,14 @@
 
 #include "t_cose_crypto.h" /* The interface this code implements */
 #include "t_cose_util.h"
+#include "t_cose/t_cose_pqc_sig_alg.h"
 #include "oqs/oqs.h"
 #include <string.h>
 
 
-struct mldsa_params {
-    int32_t      cose_alg_id;
-    const char  *oqs_alg_id;
-    size_t       sig_len;
-    size_t       pub_key_len;
-    size_t       sec_key_len;
-};
-
-/* Only ML-DSA is supported in this minimal adapter */
-static const struct mldsa_params *get_mldsa_params(int32_t cose_alg_id)
-{
-    static const struct mldsa_params params[] = {
-        { T_COSE_ALGORITHM_ML_DSA_44,
-          OQS_SIG_alg_ml_dsa_44,
-          OQS_SIG_ml_dsa_44_length_signature,
-          OQS_SIG_ml_dsa_44_length_public_key,
-          OQS_SIG_ml_dsa_44_length_secret_key },
-        { T_COSE_ALGORITHM_ML_DSA_65,
-          OQS_SIG_alg_ml_dsa_65,
-          OQS_SIG_ml_dsa_65_length_signature,
-          OQS_SIG_ml_dsa_65_length_public_key,
-          OQS_SIG_ml_dsa_65_length_secret_key },
-        { T_COSE_ALGORITHM_ML_DSA_87,
-          OQS_SIG_alg_ml_dsa_87,
-          OQS_SIG_ml_dsa_87_length_signature,
-          OQS_SIG_ml_dsa_87_length_public_key,
-          OQS_SIG_ml_dsa_87_length_secret_key }
-    };
-
-    for(size_t i = 0; i < sizeof(params)/sizeof(params[0]); i++) {
-        if(params[i].cose_alg_id == cose_alg_id) {
-            return &params[i];
-        }
-    }
-    return NULL;
-}
-
-static bool algorithm_is_mldsa(int32_t cose_alg_id)
-{
-    return get_mldsa_params(cose_alg_id) != NULL;
-}
-
-
 bool t_cose_crypto_is_algorithm_supported(int32_t cose_algorithm_id)
 {
-    return algorithm_is_mldsa(cose_algorithm_id);
+    return t_cose_find_pqc_alg(cose_algorithm_id) != NULL;
 }
 
 
@@ -71,7 +29,7 @@ enum t_cose_err_t t_cose_crypto_sig_size(int32_t            cose_algorithm_id,
                                          size_t            *sig_size)
 {
     (void)signing_key;
-    const struct mldsa_params *params = get_mldsa_params(cose_algorithm_id);
+    const struct t_cose_pqc_alg *params = t_cose_find_pqc_alg(cose_algorithm_id);
     if(params == NULL) {
         return T_COSE_ERR_UNSUPPORTED_SIGNING_ALG;
     }
@@ -82,13 +40,13 @@ enum t_cose_err_t t_cose_crypto_sig_size(int32_t            cose_algorithm_id,
 
 enum t_cose_err_t t_cose_crypto_sign(int32_t                cose_algorithm_id,
                                      struct t_cose_key      signing_key,
-                                     void                  *crypto_context,
-                                     struct q_useful_buf_c  hash_to_sign,
-                                     struct q_useful_buf    buffer_for_signature,
-                                     struct q_useful_buf_c *signature)
+                                    void                  *crypto_context,
+                                    struct q_useful_buf_c  hash_to_sign,
+                                    struct q_useful_buf    buffer_for_signature,
+                                    struct q_useful_buf_c *signature)
 {
     (void)crypto_context;
-    const struct mldsa_params *params = get_mldsa_params(cose_algorithm_id);
+    const struct t_cose_pqc_alg *params = t_cose_find_pqc_alg(cose_algorithm_id);
     if(params == NULL) {
         return T_COSE_ERR_UNSUPPORTED_SIGNING_ALG;
     }
@@ -132,7 +90,7 @@ enum t_cose_err_t t_cose_crypto_verify(int32_t               cose_algorithm_id,
                                       struct q_useful_buf_c signature)
 {
     (void)crypto_context;
-    const struct mldsa_params *params = get_mldsa_params(cose_algorithm_id);
+    const struct t_cose_pqc_alg *params = t_cose_find_pqc_alg(cose_algorithm_id);
     if(params == NULL) {
         return T_COSE_ERR_UNSUPPORTED_SIGNING_ALG;
     }
