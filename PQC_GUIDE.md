@@ -95,3 +95,45 @@ python3 test/pretty_print.py pub.bin test/cose_pqc.cddl # supply your own CDDL
 The tool annotates labels (kty/kid/alg/pub/priv) and algorithm names from the
 CDDL, formats byte strings as hex with wrapping (~72 chars), and indents
 maps/lists similar to RFC 8610 diagnostic notation.
+
+## Test Runner (run_tests)
+
+The test runner is implemented in `test/run_tests.c`. It aggregates the
+individual unit tests (e.g., sign/verify, MAC, parameters) and reports results.
+
+## Test Programs Overview
+
+In this repo, the following test/utility programs are commonly built:
+
+```
+gen_pqc_sig_keys       # generate PQC key pairs as COSE_Key (public + private)
+t_cose_pqc_sig_sign    # sign a payload using a COSE_Key private key
+t_cose_pqc_sig_verify  # verify a COSE_Sign1 using a COSE_Key public key
+```
+
+## PQC Smoke Test Script
+
+For quick end-to-end testing across multiple PQC algorithms, use the
+provided script:
+
+```
+test/pqc_sig_smoke.sh
+```
+
+It generates keys, signs a small payload, and verifies the signature for:
+ML-DSA, FN-DSA, and SLH-DSA. You can pass a build directory as the first
+argument (default is `build`).
+
+## COSE ML-DSA C# Implementierung
+
+This example uses the output of the https://github.com/hannestschofenig/CoseMldsaSign1Demo demo, stored in `test/data/COSE_ML_DSA_Example.txt`.
+
+Use the helper script to extract the COSE_Sign1 and SPKI public key, convert
+the public key to COSE_Key, and run verification:
+
+```
+python3 test/verify_cose_mldsa_example.py
+./build/t_cose_pqc_sig_verify COSE_ML_DSA_Example.pub.cbor COSE_ML_DSA_Example.signed.bin
+```
+
+Since this implementation utilizes a different COSE ML-DSA implementation it serves as an interop test case.

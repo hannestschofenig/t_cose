@@ -285,6 +285,24 @@ create_tbs_hash(int32_t                          cose_algorithm_id,
                 struct q_useful_buf              buffer_for_hash,
                 struct q_useful_buf_c           *hash);
 
+/**
+ * \brief Create the CBOR-encoded Sig_structure bytes (unhashed).
+ *
+ * \param[in] sign_inputs      The payload, AAD and header params to encode.
+ * \param[in] buffer_for_tbs   Buffer into which the encoded Sig_structure is put.
+ * \param[out] tbs             Pointer and length of the resulting bytes.
+ *
+ * \return This returns one of the error codes defined by \ref t_cose_err_t.
+ *
+ * This creates the Sig_structure as defined in RFC 9052 section 4.4 and
+ * returns the encoded bytes. This is used by signature algorithms that
+ * consume the message directly (for example, PQC algorithms via liboqs).
+ */
+enum t_cose_err_t
+create_tbs_bytes(const struct t_cose_sign_inputs *sign_inputs,
+                 struct q_useful_buf              buffer_for_tbs,
+                 struct q_useful_buf_c           *tbs);
+
 
 /*
  * Create the Enc_structure for COSE_Encrypt as described

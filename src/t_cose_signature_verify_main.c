@@ -20,6 +20,7 @@
 #include "t_cose_util.h"
 #include "t_cose_crypto.h"
 #include <stdbool.h>
+#include <stdlib.h>
 
 /* The list of algorithms supported by this verifier. */
 static bool
@@ -142,14 +143,37 @@ t_cose_signature_verify_main_cb(struct t_cose_signature_verify   *me_x,
     }
 
     if (sig_algorithm_is_pqc(cose_algorithm_id)) {
+        size_t body_len = q_useful_buf_c_is_null(sign_inputs->body_protected) ?
+                          0 : sign_inputs->body_protected.len;
+        size_t sign_len = q_useful_buf_c_is_null(sign_inputs->sign_protected) ?
+                          0 : sign_inputs->sign_protected.len;
+        size_t ext_len = q_useful_buf_c_is_null(sign_inputs->ext_sup_data) ?
+                         0 : sign_inputs->ext_sup_data.len;
+        size_t payload_len = q_useful_buf_c_is_null(sign_inputs->payload) ?
+                             0 : sign_inputs->payload.len;
+        size_t tbs_len = body_len + sign_len + ext_len + payload_len + 64;
+        uint8_t *tbs_buf = malloc(tbs_len);
+        struct q_useful_buf tbs_buf_useful = { .ptr = tbs_buf, .len = tbs_len };
+        struct q_useful_buf_c tbs_bytes;
+
+        if(tbs_buf == NULL) {
+            return_value = T_COSE_ERR_INSUFFICIENT_MEMORY;
+            goto Done;
+        }
+
+        return_value = create_tbs_bytes(sign_inputs, tbs_buf_useful, &tbs_bytes);
+        if(return_value != T_COSE_SUCCESS) {
+            free(tbs_buf);
+            goto Done;
+        }
 
         /* -- Verify the signature -- */
-        // TBD: Here we should not only use the payload but Sig_structure
         return_value = t_cose_crypto_verify(cose_algorithm_id,
                                             me->verification_key,
                                             me->crypto_context,
-                                            sign_inputs->payload,
+                                            tbs_bytes,
                                             signature);
+        free(tbs_buf);
     } else {
         /* --- Compute the hash of the to-be-signed bytes -- */
         return_value = create_tbs_hash(cose_algorithm_id,

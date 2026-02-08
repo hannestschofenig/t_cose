@@ -22,6 +22,7 @@
 #include "t_cose_crypto.h"
 #include "t_cose/t_cose_pqc_sig_alg.h"
 #include <stdbool.h>
+#include <stdlib.h>
 
 static bool algorithm_is_pqc(int32_t cose_algorithm_id)
 {
@@ -59,6 +60,7 @@ t_cose_signature_sign1_main_cb(struct t_cose_signature_sign     *me_x,
     struct q_useful_buf         buffer_for_signature;
     struct q_useful_buf_c       tbs_hash;
     struct q_useful_buf_c       signature;
+    struct q_useful_buf_c       tbs_bytes;
 
     /* Check encoder state before QCBOREncode_OpenBytes() for sensible
      * error reporting. */
@@ -76,12 +78,36 @@ t_cose_signature_sign1_main_cb(struct t_cose_signature_sign     *me_x,
                                                   me->signing_key,
                                                   &signature.len);
         } else {
+            size_t body_len = q_useful_buf_c_is_null(sign_inputs->body_protected) ?
+                              0 : sign_inputs->body_protected.len;
+            size_t sign_len = q_useful_buf_c_is_null(sign_inputs->sign_protected) ?
+                              0 : sign_inputs->sign_protected.len;
+            size_t ext_len = q_useful_buf_c_is_null(sign_inputs->ext_sup_data) ?
+                             0 : sign_inputs->ext_sup_data.len;
+            size_t payload_len = q_useful_buf_c_is_null(sign_inputs->payload) ?
+                                 0 : sign_inputs->payload.len;
+            size_t tbs_len = body_len + sign_len + ext_len + payload_len + 64;
+            uint8_t *tbs_buf = malloc(tbs_len);
+            struct q_useful_buf tbs_buf_useful = { .ptr = tbs_buf, .len = tbs_len };
+
+            if(tbs_buf == NULL) {
+                return_value = T_COSE_ERR_INSUFFICIENT_MEMORY;
+                goto Done;
+            }
+
+            return_value = create_tbs_bytes(sign_inputs, tbs_buf_useful, &tbs_bytes);
+            if(return_value != T_COSE_SUCCESS) {
+                free(tbs_buf);
+                goto Done;
+            }
+
             return_value = t_cose_crypto_sign(me->cose_algorithm_id,
                                               me->signing_key,
                                               NULL,
-                                              sign_inputs->payload,
+                                              tbs_bytes,
                                               buffer_for_signature,
                                               &signature);
+            free(tbs_buf);
         }
     } else {
         if (QCBOREncode_IsBufferNULL(cbor_encoder)) {

@@ -671,6 +671,48 @@ Done:
     return return_value;
 }
 
+enum t_cose_err_t
+create_tbs_bytes(const struct t_cose_sign_inputs *sign_inputs,
+                 const struct q_useful_buf        buffer_for_tbs,
+                 struct q_useful_buf_c           *tbs)
+{
+    QCBOREncodeContext cbor_encoder;
+    enum t_cose_err_t  return_value;
+    bool              has_sign_protected;
+    struct q_useful_buf_c ext_aad;
+    struct q_useful_buf_c payload;
+
+    QCBOREncode_Init(&cbor_encoder, buffer_for_tbs);
+
+    has_sign_protected = !q_useful_buf_c_is_null(sign_inputs->sign_protected);
+    ext_aad = q_useful_buf_c_is_null(sign_inputs->ext_sup_data) ?
+              NULL_Q_USEFUL_BUF_C : sign_inputs->ext_sup_data;
+    payload = q_useful_buf_c_is_null(sign_inputs->payload) ?
+              NULL_Q_USEFUL_BUF_C : sign_inputs->payload;
+
+    QCBOREncode_OpenArray(&cbor_encoder);
+
+    if(has_sign_protected) {
+        QCBOREncode_AddText(&cbor_encoder,
+                            Q_USEFUL_BUF_FROM_SZ_LITERAL(COSE_SIG_CONTEXT_STRING_SIGNATURE));
+        QCBOREncode_AddBytes(&cbor_encoder, sign_inputs->body_protected);
+        QCBOREncode_AddBytes(&cbor_encoder, sign_inputs->sign_protected);
+    } else {
+        QCBOREncode_AddText(&cbor_encoder,
+                            Q_USEFUL_BUF_FROM_SZ_LITERAL(COSE_SIG_CONTEXT_STRING_SIGNATURE1));
+        QCBOREncode_AddBytes(&cbor_encoder, sign_inputs->body_protected);
+    }
+
+    QCBOREncode_AddBytes(&cbor_encoder, ext_aad);
+    QCBOREncode_AddBytes(&cbor_encoder, payload);
+
+    QCBOREncode_CloseArray(&cbor_encoder);
+    QCBOREncode_Finish(&cbor_encoder, tbs);
+
+    return_value = qcbor_encode_error_to_t_cose_error(&cbor_encoder);
+    return return_value;
+}
+
 
 
 enum t_cose_err_t

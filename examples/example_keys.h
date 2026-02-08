@@ -278,4 +278,15 @@ extern const unsigned char ed25519_key_pair_der[48];
 extern const uint8_t ml_dsa_44_private_key[2560];
 extern const uint8_t ml_dsa_44_public_key[1312];
 
+/* Example keys for ML-DSA-65 */
+
+extern const uint8_t ml_dsa_65_private_key[4032];
+extern const uint8_t ml_dsa_65_public_key[1952];
+
+/* Example keys for ML-DSA-87 */
+
+extern const uint8_t ml_dsa_87_private_key[4896];
+extern const uint8_t ml_dsa_87_public_key[2592];
+
+
 #endif /* example_keys_h */
